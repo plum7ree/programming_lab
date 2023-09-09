@@ -1,0 +1,115 @@
+// The Minimum Cost Maximum Flow (MCMF) problem can be approached using the Successive Shortest Path Algorithm, which integrates the Bellman-Ford algorithm to find the shortest path (by cost) from the source to the sink.
+
+// Here's a general outline:
+
+// Initialization:
+
+// Start with an initial feasible flow (typically zero flow).
+// Initialize the cost to zero.
+// Main Loop:
+
+// While there exists a path from the source to the sink in the residual graph:
+// a. Use the Bellman-Ford algorithm to find the shortest path (in terms of cost) from the source to the sink.
+// b. Augment the flow along this path. This means sending as much flow as the path allows (limited by the edge with the smallest capacity on the path).
+// c. Adjust the residual capacities of the edges along the path.
+// d. Update the cost based on the flow sent and the cost of each edge used.
+// Termination:
+
+// When no path from the source to the sink exists in the residual graph, the algorithm stops.
+// The result is a flow with the maximum flow value that also minimizes the cost.
+// A few things to note:
+
+// The Bellman-Ford algorithm is used because it can handle negative edge weights, which may arise in the residual graph due to costs.
+
+// The residual graph is a representation of how much more flow can be sent along an edge (capacity minus flow sent so far). It changes with each iteration as flows are adjusted.
+
+// Edge costs can be negative in the residual graph when reversing flow along an edge that has a positive flow. This is because sending flow in the opposite direction reduces the cost.
+
+// It's crucial to detect negative cycles in the residual graph. If a negative cycle exists, the algorithm can be stuck in an infinite loop, repeatedly sending flow around the cycle and reducing the cost without ever reaching the maximum flow.
+
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <limits>
+
+const int INF = std::numeric_limits<int>::max();
+
+struct Edge {
+    int from, to, capacity, cost, flow;
+};
+
+std::vector<std::vector<int>> adj;
+std::vector<Edge> edges;
+
+void addEdge(int from, int to, int capacity, int cost) {
+    adj[from].push_back(edges.size());
+    edges.push_back({from, to, capacity, cost, 0});
+    adj[to].push_back(edges.size());
+    edges.push_back({to, from, 0, -cost, 0});
+}
+
+bool bellmanFord(int s, int t, std::vector<int>& dist, std::vector<int>& parent) {
+    int n = adj.size();
+    dist.assign(n, INF);
+    dist[s] = 0;
+    parent.assign(n, -1);
+
+    for (int i = 0; i < n - 1; i++) {
+        bool update = false;
+        for (const Edge &e : edges) {
+            if (e.capacity > e.flow && dist[e.from] + e.cost < dist[e.to]) {
+                dist[e.to] = dist[e.from] + e.cost;
+                parent[e.to] = e.from;
+                update = true;
+            }
+        }
+        if (!update) break;
+    }
+
+    return dist[t] != INF;
+}
+
+// s: start, t: target
+std::pair<int, int> minCostMaxFlow(int s, int t) {
+    int flow = 0, cost = 0;
+    std::vector<int> dist, parent;
+    while (bellmanFord(s, t, dist, parent)) {
+        int pushFlow = INF;
+        for (int v = t; v != s; v = parent[v]) {
+            int id = adj[parent[v]].back();
+            pushFlow = std::min(pushFlow, edges[id].capacity - edges[id].flow);
+        }
+
+        for (int v = t; v != s; v = parent[v]) {
+            int id = adj[parent[v]].back();
+            edges[id].flow += pushFlow;
+            edges[id ^ 1].flow -= pushFlow;
+            cost += pushFlow * edges[id].cost;
+        }
+        flow += pushFlow;
+    }
+
+    return {flow, cost};
+}
+
+int main() {
+    int n, m;
+    std::cin >> n >> m;
+
+    adj.resize(n);
+    
+    for (int i = 0; i < m; i++) {
+        int u, v, capacity, cost;
+        std::cin >> u >> v >> capacity >> cost;
+        addEdge(u, v, capacity, cost);
+    }
+
+    int s, t;
+    std::cin >> s >> t;
+
+    std::pair<int, int> result = minCostMaxFlow(s, t);
+    std::cout << "Max Flow: " << result.first << ", Min Cost: " << result.second << std::endl;
+
+    return 0;
+}
